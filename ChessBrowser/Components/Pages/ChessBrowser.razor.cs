@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components.Forms;
 using System.Diagnostics;
 using MySql.Data.MySqlClient;
-// testing repo
 namespace ChessBrowser.Components.Pages
 {
   public partial class ChessBrowser
