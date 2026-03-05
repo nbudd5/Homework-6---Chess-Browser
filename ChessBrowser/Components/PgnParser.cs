@@ -1,6 +1,13 @@
 ﻿namespace ChessBrowser.Components
 {
-    public class PgnParser
+    public static class PgnParser
     {
+        public static List<ChessGame> parseData()
+        {
+            List<ChessGame> games = new List<ChessGame>();
+
+
+            return games;
+        }
     }
 }
