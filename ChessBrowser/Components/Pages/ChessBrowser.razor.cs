@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components.Forms;
 using System.Diagnostics;
 using MySql.Data.MySqlClient;
+using Org.BouncyCastle.Bcpg.OpenPgp;
 namespace ChessBrowser.Components.Pages
 {
   public partial class ChessBrowser
@@ -39,6 +40,7 @@ namespace ChessBrowser.Components.Pages
       // assuimg you've filled in the credentials in the GUI
       string connection = GetConnectionString();
 
+      List<ChessGame> cgs = PgnParser.parseData(PGNFileLines);
       // TODO:
       //   Parse the provided PGN data
       //   We recommend creating separate libraries to represent chess data and load the file

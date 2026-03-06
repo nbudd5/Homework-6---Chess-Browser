@@ -5,7 +5,7 @@
     {
         public string EventName { get; set; }
         public string Site { get; set; }
-        public DateTime EventDate { set; get; }
+        public string EventDate { set; get; }
         public string Round { get; set; }
         public string WhitePlayer { get; set; }
         public string BlackPlayer { get; set; }
