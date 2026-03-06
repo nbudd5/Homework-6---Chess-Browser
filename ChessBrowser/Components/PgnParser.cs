@@ -3,8 +3,16 @@ using System.Text.RegularExpressions;
 
 namespace ChessBrowser.Components
 {
+    /// <summary>
+    /// Class for parsing PGN files to a list of ChessGame objects.
+    /// </summary>
     public static class PgnParser
     {
+        /// <summary>
+        /// Function that parses data from the array of strings extracted from a PGN file. 
+        /// </summary>
+        /// <param name="PGNFileLines"> The lines from the PGN text file.</param>
+        /// <returns></returns>
         public static List<ChessGame> parseData(string[] PGNFileLines)
         {
             List<ChessGame> games = new List<ChessGame>();
