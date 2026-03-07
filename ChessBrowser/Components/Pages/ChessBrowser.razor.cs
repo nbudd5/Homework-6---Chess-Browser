@@ -186,7 +186,7 @@ namespace ChessBrowser.Components.Pages
                 insertCommand.Parameters.AddWithValue("@name", eventName);
                 insertCommand.Parameters.AddWithValue("@site", site);
                 insertCommand.Parameters.AddWithValue("@eventDate", normalizedDate);
-                
+
                 insertCommand.ExecuteNonQuery();
 
                 // get the event using tis id
@@ -276,58 +276,52 @@ namespace ChessBrowser.Components.Pages
                     // Open a connection
                     conn.Open();
 
-                    // TODO:
-                    //   Generate and execute an SQL command,
-                    //   then parse the results into an appropriate string and return it.
-
                     MySqlCommand command = conn.CreateCommand();
 
-                    //StringBuilder sql = new StringBuilder("SELECT g.Result, e.Name as eName, e.Date, e.Site FROM " +
-                    //    "Players JOIN Games as g NATURAL JOIN Events e Where True");
-                    StringBuilder sql = new StringBuilder("SELECT w.Name AS wName, b.Name AS bName," +
-                        " w.Elo AS wElo, b.Elo AS bElo, e.Name AS eName, e.Date, e.Site, g.Result FROM" +
+                    // Select from temp table that gives all needed data from
+                    // Events, Players, and Games per Game
+                    StringBuilder sql = new StringBuilder("SELECT * FROM" +
+                        "(SELECT w.Name AS wName, b.Name AS bName,w.Elo AS wElo, b.Elo AS bElo," +
+                        " e.Name AS eName, e.Date, e.Site, g.Result, g.Moves FROM" +
                         " Games AS g JOIN Players AS w ON w.pID = WhitePlayer" +
                         " JOIN Players AS b ON b.pID = BlackPlayer" +
-                        " JOIN Events AS e ON g.eID = e.eID");
+                        " JOIN Events AS e ON g.eID = e.eID) AS gameData" +
+                        " WHERE TRUE");
 
-
-                    if (!string.IsNullOrWhiteSpace(black) || !string.IsNullOrWhiteSpace(white))
+                    // If White Player search box is not empty
+                    if (!string.IsNullOrWhiteSpace(white))
                     {
-                        sql.Insert(13, " Players Join");
-                        
-                        if (!string.IsNullOrWhiteSpace(white))
-                        {
-
-                            sql.Append(" AND WhitePlayer = @white");
-                            command.Parameters.AddWithValue("@white", white);
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(black))
-                        {
-                            sql.Append(" AND BlackPlayer = @black");
-                            command.Parameters.AddWithValue("@black", black);
-                        }
+                        sql.Append(" AND wName = @white");
+                        command.Parameters.AddWithValue("@white", white);
                     }
-                    
-                    if(!string.IsNullOrWhiteSpace(opening))
+
+                    // If Black Player search box is not empty
+                    if (!string.IsNullOrWhiteSpace(black))
                     {
-                        sql.Append(" And Moves Like @moves");
+                        sql.Append(" AND bName = @black");
+                        command.Parameters.AddWithValue("@black", black);
+                    }
+
+                    // If Opening Move search box is not empty
+                    if (!string.IsNullOrWhiteSpace(opening))
+                    {
+                        sql.Append(" AND Moves Like @moves");
                         command.Parameters.AddWithValue("@moves", opening + "%");
                     }
-                    
-                    if(!string.IsNullOrWhiteSpace(winner))
+
+                    // If Winner search box is not selected as Any
+                    if (!string.IsNullOrWhiteSpace(winner))
                     {
-                        sql.Append(" AND winner = @winner");
+                        sql.Append(" AND Result = @winner");
                         command.Parameters.AddWithValue("@winner", winner);
                     }
-                    
+
+                    // If Filter By Date is selected
                     if (useDate)
                     {
-                        sql.Append("And Date ");
-                    }
-                    
-                    if(showMoves){
-                        // append moves
+                        sql.Append(" AND Date >= @start AND Date <= @end");
+                        command.Parameters.AddWithValue("@start", start);
+                        command.Parameters.AddWithValue("@end", end);
                     }
 
                     command.CommandText = sql.ToString();
@@ -337,26 +331,36 @@ namespace ChessBrowser.Components.Pages
                         StringBuilder queryData = new StringBuilder();
                         while (reader.Read())
                         {
-                            queryData.Append("Event: " + reader["eName"]+ "\n");
+                            // Add column data in row to string in correct format
+                            queryData.Append("Event: " + reader["eName"] + "\n");
                             queryData.Append("Site: " + reader["Site"] + "\n");
-                            queryData.Append("Date: " + reader.GetDateTime("Date").ToString("MM/dd/yyyy") + "\n");
+                            // If server throws exception when reading date, add 00/00/0000 in date's place
+                            try
+                            {
+                                queryData.Append("Date: " + reader.GetDateTime("Date").ToString("MM/dd/yyyy") + "\n");
+                            }
+                            catch
+                            {
+                                queryData.Append("Date: 00/00/0000 \n");
+                            }
                             queryData.Append("White: " + reader["wName"] + " (" + reader["wElo"] + ")\n");
                             queryData.Append("Black: " + reader["bName"] + " (" + reader["bElo"] + ")\n");
-                            queryData.Append("Result: " + reader["Result"]+ "\n\n");
-                            numRows++;  
+                            queryData.Append("Result: " + reader["Result"] + "\n");
+                            if (showMoves)
+                                queryData.Append(reader["Moves"] + "\n");
+                            queryData.Append("\n");
+
+                            numRows++;
                         }
                         parsedResult = queryData.ToString();
                     }
-
                 }
-                
                 catch (Exception e)
                 {
                     System.Diagnostics.Debug.WriteLine(e.Message);
                     Debug.WriteLine(e.ToString()); //query bugs
                 }
             }
-
             return numRows + " results\n\n" + parsedResult;
         }
 
@@ -395,7 +399,7 @@ namespace ChessBrowser.Components.Pages
                     fileContent = await reader.ReadToEndAsync();
                     string[] fileLines =
                         fileContent.Split(new string[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-                   
+
                     //TODO TESTING STUFF DELETE LATer
                     List<ChessGame> games = PgnParser.parseData(fileLines);
 
@@ -404,17 +408,17 @@ namespace ChessBrowser.Components.Pages
                     {
                         ChessGame game = games[i];
 
-                        Console.WriteLine("Event: " +game.EventName);
-                        Console.WriteLine("Site: " +game.Site);
-                        Console.WriteLine("Date: " +game.EventDate);
+                        Console.WriteLine("Event: " + game.EventName);
+                        Console.WriteLine("Site: " + game.Site);
+                        Console.WriteLine("Date: " + game.EventDate);
                         Console.WriteLine("ROund: " + game.Round);
-                        Console.WriteLine("White: " +game.WhitePlayer + " (" +game.WhiteElo + ")");
-                        Console.WriteLine("Black: " +game.BlackPlayer + " (" +game.BlackElo + ")");
+                        Console.WriteLine("White: " + game.WhitePlayer + " (" + game.WhiteElo + ")");
+                        Console.WriteLine("Black: " + game.BlackPlayer + " (" + game.BlackElo + ")");
                         Console.WriteLine("Result: " + game.Result);
                         Console.WriteLine(game.Moves);
                     }
                     Console.WriteLine("Total count of parsed games: " + games.Count);
-                    
+
                     // insert the games, and don't wait for it to finish
                     // _ = throws away the task result, since we aren't waiting for it
                     _ = InsertGameData(fileLines);
