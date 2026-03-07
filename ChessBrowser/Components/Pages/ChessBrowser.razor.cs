@@ -282,11 +282,18 @@ namespace ChessBrowser.Components.Pages
 
                     MySqlCommand command = conn.CreateCommand();
 
-                    StringBuilder sql = new StringBuilder("SELECT * FROM Games Where True");
-                    
-                    if(!string.IsNullOrWhiteSpace(black) || !string.IsNullOrWhiteSpace(white))
+                    //StringBuilder sql = new StringBuilder("SELECT g.Result, e.Name as eName, e.Date, e.Site FROM " +
+                    //    "Players JOIN Games as g NATURAL JOIN Events e Where True");
+                    StringBuilder sql = new StringBuilder("SELECT w.Name AS wName, b.Name AS bName," +
+                        " w.Elo AS wElo, b.Elo AS bElo, e.Name AS eName, e.Date, e.Site, g.Result FROM" +
+                        " Games AS g JOIN Players AS w ON w.pID = WhitePlayer" +
+                        " JOIN Players AS b ON b.pID = BlackPlayer" +
+                        " JOIN Events AS e ON g.eID = e.eID");
+
+
+                    if (!string.IsNullOrWhiteSpace(black) || !string.IsNullOrWhiteSpace(white))
                     {
-                        sql.Insert(12, " Players Join");
+                        sql.Insert(13, " Players Join");
                         
                         if (!string.IsNullOrWhiteSpace(white))
                         {
@@ -330,9 +337,13 @@ namespace ChessBrowser.Components.Pages
                         StringBuilder queryData = new StringBuilder();
                         while (reader.Read())
                         {
-                            queryData.Append("Event: " + reader["Event"]+ "\n");
+                            queryData.Append("Event: " + reader["eName"]+ "\n");
                             queryData.Append("Site: " + reader["Site"] + "\n");
-                            queryData.Append("Result: " + reader["Result"]+ "\n");
+                            queryData.Append("Date: " + reader["Date"] + "\n");
+                            queryData.Append("White: " + reader["wName"] + " (" + reader["wElo"] + ")\n");
+                            queryData.Append("Black: " + reader["bName"] + " (" + reader["bElo"] + ")\n");
+                            queryData.Append("Result: " + reader["Result"]+ "\n\n");
+                            numRows++;  
                         }
                         parsedResult = queryData.ToString();
                     }
@@ -346,7 +357,7 @@ namespace ChessBrowser.Components.Pages
                 }
             }
 
-            return numRows + " results\n" + parsedResult;
+            return numRows + " results\n\n" + parsedResult;
         }
 
 
