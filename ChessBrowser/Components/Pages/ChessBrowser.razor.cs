@@ -339,7 +339,7 @@ namespace ChessBrowser.Components.Pages
                         {
                             queryData.Append("Event: " + reader["eName"]+ "\n");
                             queryData.Append("Site: " + reader["Site"] + "\n");
-                            queryData.Append("Date: " + reader["Date"] + "\n");
+                            queryData.Append("Date: " + reader.GetDateTime("Date").ToString("MM/dd/yyyy") + "\n");
                             queryData.Append("White: " + reader["wName"] + " (" + reader["wElo"] + ")\n");
                             queryData.Append("Black: " + reader["bName"] + " (" + reader["bElo"] + ")\n");
                             queryData.Append("Result: " + reader["Result"]+ "\n\n");
