@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components.Forms;
 using System.Diagnostics;
+using System.Text;
 using MySql.Data.MySqlClient;
 using System.Text.RegularExpressions;
 using Org.BouncyCastle.Bcpg.OpenPgp;
@@ -278,7 +279,66 @@ namespace ChessBrowser.Components.Pages
                     // TODO:
                     //   Generate and execute an SQL command,
                     //   then parse the results into an appropriate string and return it.
+
+                    MySqlCommand command = conn.CreateCommand();
+
+                    StringBuilder sql = new StringBuilder("SELECT * FROM Games Where True");
+                    
+                    if(!string.IsNullOrWhiteSpace(black) || !string.IsNullOrWhiteSpace(white))
+                    {
+                        sql.Insert(12, " Players Join");
+                        
+                        if (!string.IsNullOrWhiteSpace(white))
+                        {
+
+                            sql.Append(" AND WhitePlayer = @white");
+                            command.Parameters.AddWithValue("@white", white);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(black))
+                        {
+                            sql.Append(" AND BlackPlayer = @black");
+                            command.Parameters.AddWithValue("@black", black);
+                        }
+                    }
+                    
+                    if(!string.IsNullOrWhiteSpace(opening))
+                    {
+                        sql.Append(" And Moves Like @moves");
+                        command.Parameters.AddWithValue("@moves", opening + "%");
+                    }
+                    
+                    if(!string.IsNullOrWhiteSpace(winner))
+                    {
+                        sql.Append(" AND winner = @winner");
+                        command.Parameters.AddWithValue("@winner", winner);
+                    }
+                    
+                    if (useDate)
+                    {
+                        sql.Append("And Date ");
+                    }
+                    
+                    if(showMoves){
+                        // append moves
+                    }
+
+                    command.CommandText = sql.ToString();
+
+                    using (MySqlDataReader reader = command.ExecuteReader())
+                    {
+                        StringBuilder queryData = new StringBuilder();
+                        while (reader.Read())
+                        {
+                            queryData.Append("Event: " + reader["Event"]+ "\n");
+                            queryData.Append("Site: " + reader["Site"] + "\n");
+                            queryData.Append("Result: " + reader["Result"]+ "\n");
+                        }
+                        parsedResult = queryData.ToString();
+                    }
+
                 }
+                
                 catch (Exception e)
                 {
                     System.Diagnostics.Debug.WriteLine(e.Message);
