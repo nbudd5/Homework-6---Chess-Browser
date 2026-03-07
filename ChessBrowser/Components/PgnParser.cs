@@ -82,6 +82,7 @@ namespace ChessBrowser.Components
                         emptyLineCount++;
                     } else
                     {
+                        // Append move string to what's written so far
                         StringBuilder sb = new StringBuilder(game.Moves);
                         game.Moves = sb.Append(line).ToString();
                     }

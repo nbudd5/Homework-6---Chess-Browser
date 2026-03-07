@@ -51,18 +51,47 @@ namespace ChessBrowser.Components.Pages
                     // Open a connection
                     conn.Open();
 
-                    // TODO:
                     //   Iterate through your data and generate appropriate insert commands
-
+                    ChessGame game;
                     //foreach (ChessGame game in cgs)
                     for (int i = 0; i < cgs.Count; i++)
                     {
-                        ChessGame game = cgs[i];
+                        game = cgs[i];
+                        MySqlCommand command = conn.CreateCommand();
 
-                        int whiteId = GetOrInsertPlayer(conn, game.WhitePlayer, game.WhiteElo);
-                        int blackId = GetOrInsertPlayer(conn, game.BlackPlayer, game.BlackElo);
-                        int eventId = GetOrInsertEvent(conn, game.EventName, game.Site, game.EventDate);
-                        InsertGame(conn, game, whiteId, blackId, eventId);
+                        // Batched insert commands
+                        command.CommandText = 
+                            "INSERT INTO Players (Name, Elo) VALUES (@wName, @wElo)" +
+                            " ON DUPLICATE KEY UPDATE Elo = IF(@wElo > Elo, @wElo, Elo);" +
+                            "INSERT INTO Players (Name, Elo) VALUES (@bName, @bElo)" +
+                            " ON DUPLICATE KEY UPDATE Elo = IF(@bElo > Elo, @bElo, Elo);" +
+                            "INSERT INTO Events (Name, Site, Date) VALUES (@eName, @site, @Date);" +
+                            "INSERT INTO Games VALUES" +
+                            " ((SELECT pID FROM Players WHERE Name = @wName)," +
+                            " (SELECT pID FROM Players WHERE Name = @bName)," +
+                            " (SELECT eID FROM Events WHERE Name = @eName AND Site = @site AND Date = @date)," +
+                            " @round, @result, @moves);";
+
+                        
+                        // White Player params
+                        command.Parameters.AddWithValue("@wName", game.WhitePlayer);
+                        command.Parameters.AddWithValue("@wElo", game.WhiteElo);
+
+                        // Black Player params
+                        command.Parameters.AddWithValue("@bName", game.BlackPlayer);
+                        command.Parameters.AddWithValue("@bElo", game.BlackElo);
+
+                        // Event params
+                        command.Parameters.AddWithValue("@eName", game.EventName);
+                        command.Parameters.AddWithValue("@site", game.Site);
+                        command.Parameters.AddWithValue("@Date", game.EventDate);
+
+                        // Game params
+                        command.Parameters.AddWithValue("@round", game.Round);
+                        command.Parameters.AddWithValue("@result", game.Result);
+                        command.Parameters.AddWithValue("@moves", game.Moves);
+
+                        command.ExecuteNonQuery();
 
                         Progress = (int)((i + 1) * 100.0 / cgs.Count);
                         await InvokeAsync(StateHasChanged);
@@ -76,170 +105,6 @@ namespace ChessBrowser.Components.Pages
                     System.Diagnostics.Debug.WriteLine(e.Message);
                 }
             }
-        }
-
-        /// <summary>
-        ///  find player or insert them
-        /// </summary>
-        /// <param name="conn"></param>
-        /// <param name="playerName"></param>
-        /// <param name="playerElo"></param>
-        /// <returns></returns>
-        private int GetOrInsertPlayer(MySqlConnection conn, string playerName, int playerElo)
-        {
-            // assume player doesn't exist until its actually found
-            int playerId = -1;
-            int existingElo = 0;
-            Debug.WriteLine("getting/inserting " + playerName + " Elo: " + playerElo);
-
-            // check to see if the player already exists
-            MySqlCommand command = conn.CreateCommand();
-            command.CommandText = "SELECT pID, Elo FROM Players WHERE Name = @name";
-            command.Parameters.AddWithValue("@name", playerName);
-
-            using (MySqlDataReader reader = command.ExecuteReader())
-            {
-                if (reader.Read())
-                {
-                    playerId = Convert.ToInt32(reader["pID"]);
-                    existingElo = Convert.ToInt32(reader["Elo"]);
-
-                    Debug.WriteLine("Player exists ID = " + playerId + "  Elo = " + existingElo);
-                }
-            }
-
-            // if the player is not already in, create a new player 
-            if (playerId == -1)
-            {
-                Debug.WriteLine("inserting player" + playerName);
-                MySqlCommand insertCommand = conn.CreateCommand();
-                insertCommand.CommandText = "INSERT INTO Players (Name, Elo) VALUES (@name, @elo)";
-                insertCommand.Parameters.AddWithValue("@name", playerName);
-                insertCommand.Parameters.AddWithValue("@elo", playerElo);
-
-                insertCommand.ExecuteNonQuery();
-                Debug.WriteLine("Player inserted????????");
-
-                MySqlCommand idCommand = conn.CreateCommand();
-                idCommand.CommandText = "SELECT pID FROM Players WHERE Name = @name";
-                idCommand.Parameters.AddWithValue("@name", playerName);
-
-                using (MySqlDataReader reader = idCommand.ExecuteReader())
-                {
-                    if (reader.Read())
-                    {
-                        playerId = Convert.ToInt32(reader["pID"]);
-                        Debug.WriteLine("New playerID:: " + playerId);
-                    }
-                }
-            }
-            // if player already exists, check if we need to update their elo 
-            else if (playerElo > existingElo)
-            {
-                MySqlCommand updateCommand = conn.CreateCommand();
-                updateCommand.CommandText = "UPDATE Players SET Elo = @elo WHERE pID = @id";
-                updateCommand.Parameters.AddWithValue("@elo", playerElo);
-                updateCommand.Parameters.AddWithValue("@id", playerId);
-
-                updateCommand.ExecuteNonQuery();
-            }
-
-            Debug.WriteLine(playerId);
-            return playerId;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="conn"></param>
-        /// <param name="eventName"></param>
-        /// <param name="site"></param>
-        /// <param name="eventDate"></param>
-        /// <returns></returns>
-        private int GetOrInsertEvent(MySqlConnection conn, string eventName, string site, string eventDate)
-        {
-            int eventId = -1;
-            string normalizedDate = NormalizeDate(eventDate);
-
-            // check for existing event
-            MySqlCommand command = conn.CreateCommand();
-            command.CommandText =
-                "SELECT eID FROM Events WHERE Name = @name AND Site = @site AND Date = @eventDate";
-            command.Parameters.AddWithValue("@name", eventName);
-            command.Parameters.AddWithValue("@site", site);
-            command.Parameters.AddWithValue("@eventDate", normalizedDate);
-
-            using (MySqlDataReader reader = command.ExecuteReader())
-            {
-                if (reader.Read())
-                {
-                    eventId = Convert.ToInt32(reader["eID"]);
-                }
-            }
-
-            // if the event was not found, insert it
-            if (eventId == -1)
-            {
-                MySqlCommand insertCommand = conn.CreateCommand();
-                insertCommand.CommandText =
-                    "INSERT INTO Events (Name, Site, Date) VALUES (@name, @site, @eventDate)";
-                insertCommand.Parameters.AddWithValue("@name", eventName);
-                insertCommand.Parameters.AddWithValue("@site", site);
-                insertCommand.Parameters.AddWithValue("@eventDate", normalizedDate);
-
-                insertCommand.ExecuteNonQuery();
-
-                // get the event using tis id
-                MySqlCommand idCommand = conn.CreateCommand();
-                idCommand.CommandText =
-                    "SELECT eID FROM Events WHERE Name = @name AND Site = @site AND Date = @eventDate";
-                idCommand.Parameters.AddWithValue("@name", eventName);
-                idCommand.Parameters.AddWithValue("@site", site);
-                idCommand.Parameters.AddWithValue("@eventDate", normalizedDate);
-
-                using (MySqlDataReader reader = idCommand.ExecuteReader())
-                {
-                    if (reader.Read())
-                    {
-                        eventId = Convert.ToInt32(reader["eID"]);
-                    }
-                }
-            }
-
-            return eventId;
-        }
-
-        /// <summary>
-        /// default date for dirty/partial dates
-        /// </summary>
-        /// <param name="rawDate"></param>
-        /// <returns></returns>
-        private string NormalizeDate(string rawDate)
-        {
-            if (!string.IsNullOrEmpty(rawDate) &&
-                Regex.IsMatch(rawDate, @"^\d{4}\.\d{2}\.\d{2}$"))
-            {
-                return rawDate.Replace('.', '-');
-            }
-
-            return "0000-00-00";
-        }
-
-        private void InsertGame(MySqlConnection conn, ChessGame game, int whitePlayerId, int blackPlayerId, int eventId)
-        {
-            MySqlCommand command = conn.CreateCommand();
-            command.CommandText =
-                "INSERT INTO Games (WhitePlayer, BlackPlayer, eID, Round, Result, Moves) " +
-                "VALUES (@whiteId, @blackId, @eventId, @round, @result, @moves)";
-
-            command.Parameters.AddWithValue("@whiteId", whitePlayerId);
-            command.Parameters.AddWithValue("@blackId", blackPlayerId);
-            command.Parameters.AddWithValue("@eventId", eventId);
-            command.Parameters.AddWithValue("@round", game.Round);
-            command.Parameters.AddWithValue("@result", game.Result.ToString());
-            command.Parameters.AddWithValue("@moves", game.Moves);
-
-            command.ExecuteNonQuery();
         }
 
         /// <summary>
